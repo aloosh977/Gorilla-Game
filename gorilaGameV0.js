@@ -4,8 +4,6 @@ myCanvas.width = window.innerWidth;
 myCanvas.height = window.innerHeight;
 
 let buildingPosition = 0; //this for setting the backgroundBuildings x-axis
-let phase;
-let currentPlayer;
 let state = {};
 newGame();
 
@@ -14,13 +12,70 @@ function newGame() {
     phase: "aiming",
     currentPlayer: 1,
     buildings: [],
+    bomb: {
+      x: undefined,
+      y: undefined,
+      velocity: { x: 0, y: 0 },
+    },
   };
 
   for (let i = 0; i < 10; i++) {
     generateBuildings(i);
   }
 
+  initializeBombPosition();
+
   draw();
+}
+
+function generateBuildings(index) {
+  let x;
+  let gapBetweenBuildings = 5;
+  if (state.buildings[index - 1]) {
+    x =
+      state.buildings[index - 1].x +
+      state.buildings[index - 1].width +
+      gapBetweenBuildings;
+  } else {
+    x = 0;
+  }
+
+  const minWidth = 120;
+  const maxWidth = 170;
+  const width = minWidth + Math.random() * (maxWidth - minWidth);
+
+  let height;
+  if (index == 1 || index == 8) {
+    const minHeight = 200;
+    const maxHeight = 350;
+    height = minHeight + Math.random() * (maxHeight - minHeight);
+  } else {
+    const minHeight = 250;
+    const maxHeight = 500;
+    height = minHeight + Math.random() * (maxHeight - minHeight);
+  }
+  const lightsOn = [];
+  for (let i = 0; i < 50; i++) {
+    const light = Math.random() < 0.33 ? true : false;
+    lightsOn.push(light);
+  }
+
+  state.buildings.push({ x, width, height, lightsOn });
+}
+
+function initializeBombPosition() {
+  const building =
+    state.currentPlayer === 1 ? state.buildings[1] : state.buildings[8];
+  const gorilaX = building.x + building.width / 2;
+  const gorilaY = building.height;
+
+  const gorilaHandX = state.currentPlayer === 1 ? -28 : 28;
+  const gorilaHandY = 107;
+
+  state.bomb.x = gorilaX + gorilaHandX;
+  state.bomb.y = gorilaY + gorilaHandY;
+  state.bomb.velocity.x = 0;
+  state.bomb.velocity.y = 0;
 }
 
 function draw() {
@@ -37,6 +92,8 @@ function draw() {
 
   drawGorila(1);
   drawGorila(2);
+
+  drawBomb();
 
   ctx.restore();
 }
@@ -70,37 +127,6 @@ function drawBackgroundBuilding() {
   ctx.fillStyle = "rgba(108, 78, 118, 1)";
   ctx.fillRect(buildingPosition, 0, buildingWidth, buildingHeight);
   buildingPosition += buildingWidth + 5;
-}
-
-function generateBuildings(index) {
-  let x;
-  if (state.buildings[index - 1]) {
-    x = state.buildings[index - 1].x + state.buildings[index - 1].width + 5;
-  } else {
-    x = 0;
-  }
-
-  const minWidth = 120;
-  const maxWidth = 170;
-  const width = minWidth + Math.random() * (maxWidth - minWidth);
-
-  let height;
-  if (index == 1 || index == 8) {
-    const minHeight = 200;
-    const maxHeight = 350;
-    height = minHeight + Math.random() * (maxHeight - minHeight);
-  } else {
-    const minHeight = 250;
-    const maxHeight = 500;
-    height = minHeight + Math.random() * (maxHeight - minHeight);
-  }
-  const lightsOn = [];
-  for (let i = 0; i < 50; i++) {
-    const light = Math.random() < 0.33 ? true : false;
-    lightsOn.push(light);
-  }
-
-  state.buildings.push({ x, width, height, lightsOn });
 }
 
 function drawBuildings() {
@@ -153,6 +179,7 @@ function drawGorila(player) {
   drawGorilaBody();
   drawGorilaLeftArm(player);
   drawGorilaRightArm(player);
+  drawGorilaFace(player);
 
   ctx.restore();
 }
@@ -181,7 +208,6 @@ function drawGorilaLeftArm(player) {
   ctx.beginPath();
   ctx.moveTo(-14, 50);
   if (state.phase === "aiming" && state.currentPlayer === 1 && player === 1) {
-    console.log(2);
     ctx.quadraticCurveTo(-44, 63, -28, 107);
   } else if (
     state.pahse === "celebrating" &&
@@ -207,4 +233,57 @@ function drawGorilaRightArm(player) {
     ctx.quadraticCurveTo(44, 45, 28, 12);
   }
   ctx.stroke();
+}
+function drawGorilaFace(player) {
+  //face
+  ctx.fillStyle = "lightgray";
+  ctx.beginPath();
+  ctx.arc(0, 63, 9, 0, 2 * Math.PI);
+  ctx.moveTo(-3.5, 70);
+  ctx.arc(-3.5, 70, 4, 0, 2 * Math.PI);
+  ctx.moveTo(3.5, 70);
+  ctx.arc(3.5, 70, 4, 0, 2 * Math.PI);
+  ctx.fill();
+
+  //eyes
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  ctx.arc(-3.5, 70, 1.4, 0, 2 * Math.PI);
+  ctx.moveTo(3.5, 70);
+  ctx.arc(3.5, 70, 1.4, 0, 2 * Math.PI);
+  ctx.fill();
+
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 1.4;
+
+  //nose
+  ctx.beginPath();
+  ctx.moveTo(-3.5, 66.5);
+  ctx.lineTo(-1.5, 65);
+  ctx.moveTo(1.5, 65);
+  ctx.lineTo(3.5, 66.5);
+  ctx.stroke();
+
+  //mouse
+  ctx.beginPath();
+  if (state.phase === "celebrating" && state.currentPlayer === player) {
+    ctx.moveTo(-5, 60);
+    ctx.quadraticCurveTo(0, 56, 5, 60);
+  } else {
+    ctx.moveTo(-5, 56);
+    ctx.quadraticCurveTo(0, 60, 5, 56);
+  }
+  ctx.stroke();
+}
+
+function drawBomb() {
+  ctx.save();
+  ctx.translate(state.bomb.x, state.bomb.y);
+
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(0, 0, 6, 0, 2 * Math.PI);
+  ctx.fill();
+
+  ctx.restore();
 }
