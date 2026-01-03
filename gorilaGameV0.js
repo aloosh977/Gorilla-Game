@@ -1,9 +1,22 @@
+//game canva
 const myCanvas = document.getElementById("myCanvas");
+//player 1 info
+const angle1DOM = document.querySelector("#info-left .angle");
+const velocity1DOM = document.querySelector("#info-left .velocity");
+//player 2 info
+const angle2DOM = document.querySelector("#info-right .angle");
+const velocity2DOM = document.querySelector("#info-right .velocity");
+//bomb grab area
+const bombGrabAreaDOM = document.getElementById("bomb-grab-area");
+//event handler
+let isDragging = false;
+let dragStartX = undefined;
+let dragStartY = undefined;
+
 const ctx = myCanvas.getContext("2d");
 myCanvas.width = window.innerWidth;
 myCanvas.height = window.innerHeight;
 
-let buildingPosition = 0; //this for setting the backgroundBuildings x-axis
 let state = {};
 newGame();
 
@@ -12,16 +25,23 @@ function newGame() {
     phase: "aiming",
     currentPlayer: 1,
     buildings: [],
+    backgroundBuildings: [],
     bomb: {
       x: undefined,
       y: undefined,
       velocity: { x: 0, y: 0 },
     },
+    scale: 1,
   };
 
   for (let i = 0; i < 10; i++) {
     generateBuildings(i);
   }
+  for (let i = 0; i < 20; i++) {
+    generateBackgroundBuildings(i);
+  }
+
+  calculateScale();
 
   initializeBombPosition();
 
@@ -63,6 +83,33 @@ function generateBuildings(index) {
   state.buildings.push({ x, width, height, lightsOn });
 }
 
+function generateBackgroundBuildings(index) {
+  let x;
+  let gapBetweenBackgroundBuildings = 5;
+  if (state.backgroundBuildings[index - 1]) {
+    x =
+      state.backgroundBuildings[index - 1].x +
+      state.backgroundBuildings[index - 1].width +
+      gapBetweenBackgroundBuildings;
+  } else {
+    x = 0;
+  }
+  const minWidth = 60;
+  const maxWidth = 140;
+  const minHeight = 200;
+  const maxHeight = 550;
+  const width = minWidth + Math.random() * (maxWidth - minWidth);
+  const height = minHeight + Math.random() * (maxHeight - minHeight);
+  state.backgroundBuildings.push({ x, width, height });
+}
+
+function calculateScale() {
+  const lastBuilding = state.buildings[9];
+  const cityWidth = lastBuilding.x + lastBuilding.width;
+
+  state.scale = window.innerWidth / cityWidth;
+}
+
 function initializeBombPosition() {
   const building =
     state.currentPlayer === 1 ? state.buildings[1] : state.buildings[8];
@@ -76,13 +123,29 @@ function initializeBombPosition() {
   state.bomb.y = gorilaY + gorilaHandY;
   state.bomb.velocity.x = 0;
   state.bomb.velocity.y = 0;
+
+  //position bomb grab area
+  const grabAreaRadius = 15;
+  const left = state.bomb.x * state.scale - grabAreaRadius;
+  const bottom = state.bomb.y * state.scale - grabAreaRadius;
+  bombGrabAreaDOM.style.left = `${left}px`;
+  bombGrabAreaDOM.style.bottom = `${bottom}px`;
 }
 
+window.addEventListener("resize", () => {
+  myCanvas.width = window.innerWidth;
+  myCanvas.height = window.innerHeight;
+  calculateScale();
+  initializeBombPosition();
+  draw();
+});
+
+//drawing
 function draw() {
   ctx.save();
 
   ctx.translate(0, window.innerHeight);
-  ctx.scale(1, -1);
+  ctx.scale(1 * state.scale, -1 * state.scale);
 
   drawBackground();
   drawBackgroundMoon();
@@ -99,11 +162,21 @@ function draw() {
 }
 
 function drawBackground() {
-  const gradient = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+  const gradient = ctx.createLinearGradient(
+    0,
+    0,
+    0,
+    window.innerHeight / state.scale
+  );
   gradient.addColorStop(0, "rgb(204, 164, 53)");
   gradient.addColorStop(1, "rgb(179, 131, 0)");
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  ctx.fillRect(
+    0,
+    0,
+    window.innerWidth / state.scale,
+    window.innerHeight / state.scale
+  );
 }
 function drawBackgroundMoon() {
   ctx.fillStyle = "rgba(255,255,255,0.6)";
@@ -111,22 +184,18 @@ function drawBackgroundMoon() {
   ctx.arc(window.innerWidth / 3, window.innerHeight / 1.2, 80, 0, 2 * Math.PI);
   ctx.fill();
 }
-function drawBackgroundBuildings() {
-  for (let i = 0; i < 20; i++) {
-    drawBackgroundBuilding();
-  }
-}
-function drawBackgroundBuilding() {
-  const minWidth = 60;
-  const maxWidth = 140;
-  const minHeight = 200;
-  const maxHeight = 550;
-  const buildingWidth = minWidth + Math.random() * (maxWidth - minWidth);
-  const buildingHeight = minHeight + Math.random() * (maxHeight - minHeight);
 
-  ctx.fillStyle = "rgba(108, 78, 118, 1)";
-  ctx.fillRect(buildingPosition, 0, buildingWidth, buildingHeight);
-  buildingPosition += buildingWidth + 5;
+function drawBackgroundBuildings() {
+  state.backgroundBuildings.forEach((backgroundBuilding) => {
+    //draw background buildings
+    ctx.fillStyle = "rgba(108, 78, 118, 1)";
+    ctx.fillRect(
+      backgroundBuilding.x,
+      0,
+      backgroundBuilding.width,
+      backgroundBuilding.height
+    );
+  });
 }
 
 function drawBuildings() {
@@ -208,7 +277,12 @@ function drawGorilaLeftArm(player) {
   ctx.beginPath();
   ctx.moveTo(-14, 50);
   if (state.phase === "aiming" && state.currentPlayer === 1 && player === 1) {
-    ctx.quadraticCurveTo(-44, 63, -28, 107);
+    ctx.quadraticCurveTo(
+      -44,
+      63,
+      -28 - state.bomb.velocity.x / 6.25,
+      107 - state.bomb.velocity.y / 6.25
+    );
   } else if (
     state.pahse === "celebrating" &&
     state.currentPlayer === 1 &&
@@ -226,7 +300,12 @@ function drawGorilaRightArm(player) {
   ctx.beginPath();
   ctx.moveTo(14, 50);
   if (state.phase === "aiming" && state.currentPlayer === 2 && player === 2) {
-    ctx.quadraticCurveTo(44, 63, 28, 107);
+    ctx.quadraticCurveTo(
+      44,
+      63,
+      28 - state.bomb.velocity.x / 6.25,
+      107 - state.bomb.velocity.y / 6.25
+    );
   } else if (state.pahse === "celebrating" && state.currentPlayer === player) {
     ctx.quadraticCurveTo(44, 63, 28, 107);
   } else {
@@ -280,6 +359,21 @@ function drawBomb() {
   ctx.save();
   ctx.translate(state.bomb.x, state.bomb.y);
 
+  if (state.phase === "aiming") {
+    //move bomb while dragging
+    ctx.translate(-state.bomb.velocity.x / 6.25, -state.bomb.velocity.y / 6.25);
+
+    //draw trajectory line
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.setLineDash([3, 8]);
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(state.bomb.velocity.x, state.bomb.velocity.y);
+    ctx.stroke();
+  }
+
   ctx.fillStyle = "white";
   ctx.beginPath();
   ctx.arc(0, 0, 6, 0, 2 * Math.PI);
@@ -287,3 +381,52 @@ function drawBomb() {
 
   ctx.restore();
 }
+//end of drawing
+
+//event handlers
+bombGrabAreaDOM.addEventListener("mousedown", (event) => {
+  if (state.phase === "aiming") {
+    isDragging = true;
+    dragStartX = event.clientX;
+    dragStartY = event.clientY;
+
+    document.body.style.cursor = "grabbing";
+  }
+});
+
+window.addEventListener("mousemove", (event) => {
+  if (isDragging) {
+    let deltaX = event.clientX - dragStartX;
+    let deltaY = event.clientY - dragStartY;
+
+    //console.log(deltaX);
+    //console.log(deltaY);
+
+    setInfo(deltaX, deltaY);
+
+    draw();
+  }
+});
+function setInfo(deltaX, deltaY) {
+  state.bomb.velocity.x = -deltaX;
+  state.bomb.velocity.y = deltaY;
+  let velocity = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
+  let angleInRadian = Math.asin(deltaY / velocity);
+  let angleInDegree = (180 * angleInRadian) / Math.PI;
+  if (state.currentPlayer === 1) {
+    velocity1DOM.innerText = `${Math.round(velocity)}`;
+    angle1DOM.innerText = `${Math.round(angleInDegree)}`;
+  } else {
+    velocity2DOM.innerText = `${Math.round(velocity)}`;
+    angle2DOM.innerText = `${Math.round(angleInDegree)}`;
+  }
+}
+
+window.addEventListener("mouseup", (event) => {
+  if (isDragging) {
+    isDragging = false;
+    document.body.style.cursor = "default";
+
+    //throwBomb();
+  }
+});
