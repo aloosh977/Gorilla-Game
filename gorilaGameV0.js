@@ -12,6 +12,7 @@ const bombGrabAreaDOM = document.getElementById("bomb-grab-area");
 let isDragging = false;
 let dragStartX = undefined;
 let dragStartY = undefined;
+let previousAnimationTimestamp = undefined;
 
 const ctx = myCanvas.getContext("2d");
 myCanvas.width = window.innerWidth;
@@ -30,6 +31,7 @@ function newGame() {
       x: undefined,
       y: undefined,
       velocity: { x: 0, y: 0 },
+      rotation: 0,
     },
     scale: 1,
   };
@@ -123,6 +125,7 @@ function initializeBombPosition() {
   state.bomb.y = gorilaY + gorilaHandY;
   state.bomb.velocity.x = 0;
   state.bomb.velocity.y = 0;
+  state.bomb.rotation = 0;
 
   //position bomb grab area
   const grabAreaRadius = 15;
@@ -372,12 +375,28 @@ function drawBomb() {
     ctx.moveTo(0, 0);
     ctx.lineTo(state.bomb.velocity.x, state.bomb.velocity.y);
     ctx.stroke();
-  }
 
-  ctx.fillStyle = "white";
-  ctx.beginPath();
-  ctx.arc(0, 0, 6, 0, 2 * Math.PI);
-  ctx.fill();
+    //draw bomb
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, 2 * Math.PI);
+    ctx.fill();
+  } else if (state.phase === "inFlight") {
+    //draw bomb
+    ctx.fillStyle = "white";
+    ctx.rotate(state.bomb.rotation);
+    ctx.beginPath();
+    ctx.moveTo(-8, -2);
+    ctx.quadraticCurveTo(0, 12, 8, -2);
+    ctx.quadraticCurveTo(0, 2, -8, -2);
+    ctx.fill();
+  } else {
+    //draw bomb phase celebrating
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, 2 * Math.PI);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
@@ -399,6 +418,9 @@ window.addEventListener("mousemove", (event) => {
     let deltaX = event.clientX - dragStartX;
     let deltaY = event.clientY - dragStartY;
 
+    //if(deltaX)
+
+    //console.log(window.innerWidth);
     //console.log(deltaX);
     //console.log(deltaY);
 
@@ -427,6 +449,71 @@ window.addEventListener("mouseup", (event) => {
     isDragging = false;
     document.body.style.cursor = "default";
 
-    //throwBomb();
+    throwBomb();
   }
 });
+
+function throwBomb() {
+  state.phase = "inFlight";
+  previousAnimationTimestamp = undefined;
+  requestAnimationFrame(animate);
+}
+
+function animate(timestamp) {
+  if (previousAnimationTimestamp == undefined) {
+    previousAnimationTimestamp = timestamp;
+    requestAnimationFrame(animate);
+    return;
+  }
+
+  const elapsedTime = timestamp - previousAnimationTimestamp;
+
+  moveBomb(elapsedTime);
+
+  //hit detection
+  const miss = checkFrameHit();
+  const hit = false;
+  if (miss) {
+    state.currentPlayer = state.currentPlayer == 1 ? 2 : 1;
+    state.phase = "aiming";
+    initializeBombPosition();
+
+    draw();
+    return;
+  }
+  if (hit) {
+    return;
+  }
+
+  draw();
+
+  previousAnimationTimestamp = timestamp;
+  requestAnimationFrame(animate);
+}
+
+function moveBomb(elapsedTime) {
+  const multiplier = elapsedTime / 200;
+
+  //gravity effect on trajectory
+  state.bomb.velocity.y -= 20 * multiplier;
+
+  //new position
+  state.bomb.x += state.bomb.velocity.x * multiplier;
+  state.bomb.y += state.bomb.velocity.y * multiplier;
+
+  //rotation according to player
+  const direction = state.currentPlayer == 1 ? -1 : 1;
+  state.bomb.rotation += direction * 4 * multiplier;
+}
+
+function checkFrameHit() {
+  if (
+    state.bomb.y < 0 ||
+    state.bomb.x < 0 ||
+    state.bomb.x * state.scale > window.innerWidth
+  ) {
+    return true;
+  } else {
+    return false;
+  }
+}
