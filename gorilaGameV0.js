@@ -13,6 +13,8 @@ let isDragging = false;
 let dragStartX = undefined;
 let dragStartY = undefined;
 let previousAnimationTimestamp = undefined;
+//blast hole
+const blastHoleRadius = 20;
 
 const ctx = myCanvas.getContext("2d");
 myCanvas.width = window.innerWidth;
@@ -33,6 +35,7 @@ function newGame() {
       velocity: { x: 0, y: 0 },
       rotation: 0,
     },
+    blastHoles: [],
     scale: 1,
   };
 
@@ -154,7 +157,8 @@ function draw() {
   drawBackgroundMoon();
   drawBackgroundBuildings();
 
-  drawBuildings();
+  //drawBuildings();
+  drawBuildingsWithBlasts();
 
   drawGorila(1);
   drawGorila(2);
@@ -199,6 +203,31 @@ function drawBackgroundBuildings() {
       backgroundBuilding.height
     );
   });
+}
+
+function drawBuildingsWithBlasts() {
+  ctx.save();
+
+  state.blastHoles.forEach((blastHole) => {
+    ctx.beginPath();
+
+    //outer shape clockwise
+    ctx.rect(
+      0,
+      0,
+      window.innerWidth / state.scale,
+      window.innerHeight / state.scale
+    );
+
+    //inner shape counterclockwise
+    ctx.arc(blastHole.x, blastHole.y, blastHoleRadius, 0, 2 * Math.PI, true);
+
+    ctx.clip();
+  });
+
+  drawBuildings();
+
+  ctx.restore();
 }
 
 function drawBuildings() {
@@ -468,21 +497,24 @@ function animate(timestamp) {
 
   const elapsedTime = timestamp - previousAnimationTimestamp;
 
-  moveBomb(elapsedTime);
+  const hitDetectionPercision = 10;
+  for (let i = 0; i < hitDetectionPercision; i++) {
+    moveBomb(elapsedTime / hitDetectionPercision);
 
-  //hit detection
-  const miss = checkFrameHit();
-  const hit = false;
-  if (miss) {
-    state.currentPlayer = state.currentPlayer == 1 ? 2 : 1;
-    state.phase = "aiming";
-    initializeBombPosition();
+    //hit detection
+    const miss = checkFrameHit() || checkBuildingHit();
+    const hit = false;
+    if (miss) {
+      state.currentPlayer = state.currentPlayer == 1 ? 2 : 1;
+      state.phase = "aiming";
+      initializeBombPosition();
 
-    draw();
-    return;
-  }
-  if (hit) {
-    return;
+      draw();
+      return;
+    }
+    if (hit) {
+      return;
+    }
   }
 
   draw();
@@ -503,7 +535,7 @@ function moveBomb(elapsedTime) {
 
   //rotation according to player
   const direction = state.currentPlayer == 1 ? -1 : 1;
-  state.bomb.rotation += direction * 4 * multiplier;
+  state.bomb.rotation += direction * 5 * multiplier;
 }
 
 function checkFrameHit() {
@@ -515,5 +547,29 @@ function checkFrameHit() {
     return true;
   } else {
     return false;
+  }
+}
+
+function checkBuildingHit() {
+  for (let i = 0; i < state.buildings.length; i++) {
+    if (
+      state.bomb.x + 6 > state.buildings[i].x &&
+      state.bomb.x - 6 < state.buildings[i].x + state.buildings[i].width &&
+      state.bomb.y - 6 < state.buildings[i].height
+    ) {
+      //check if there's a blast hole so animation continues
+      for (let j = 0; j < state.blastHoles.length; j++) {
+        const blastHole = state.blastHoles[j];
+        const distance = Math.sqrt(
+          (blastHole.x - state.bomb.x) ** 2 + (blastHole.y - state.bomb.y) ** 2
+        );
+        if (distance < blastHoleRadius) {
+          return false;
+        }
+      }
+
+      state.blastHoles.push({ x: state.bomb.x, y: state.bomb.y });
+      return true;
+    }
   }
 }
