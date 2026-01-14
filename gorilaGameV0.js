@@ -15,6 +15,10 @@ let dragStartY = undefined;
 let previousAnimationTimestamp = undefined;
 //blast hole
 const blastHoleRadius = 20;
+//congratulation panel
+const congratulationsDOM = document.getElementById("congratulations");
+const winnerDOM = document.getElementById("winner");
+const newGameDOM = document.getElementById("new-game");
 
 const ctx = myCanvas.getContext("2d");
 myCanvas.width = window.innerWidth;
@@ -50,6 +54,13 @@ function newGame() {
 
   initializeBombPosition();
 
+  //reset html content
+  congratulationsDOM.style.visibility = "hidden";
+  angle1DOM.innerText = 0;
+  velocity1DOM.innerText = 0;
+  angle2DOM.innerText = 0;
+  velocity2DOM.innerText = 0;
+
   draw();
 }
 
@@ -75,8 +86,8 @@ function generateBuildings(index) {
     const maxHeight = 350;
     height = minHeight + Math.random() * (maxHeight - minHeight);
   } else {
-    const minHeight = 250;
-    const maxHeight = 500;
+    const minHeight = 100; //250;
+    const maxHeight = 200; //500;
     height = minHeight + Math.random() * (maxHeight - minHeight);
   }
   const lightsOn = [];
@@ -131,6 +142,7 @@ function initializeBombPosition() {
   state.bomb.rotation = 0;
 
   //position bomb grab area
+  bombGrabAreaDOM.classList.remove("hide");
   const grabAreaRadius = 15;
   const left = state.bomb.x * state.scale - grabAreaRadius;
   const bottom = state.bomb.y * state.scale - grabAreaRadius;
@@ -315,11 +327,7 @@ function drawGorilaLeftArm(player) {
       -28 - state.bomb.velocity.x / 6.25,
       107 - state.bomb.velocity.y / 6.25
     );
-  } else if (
-    state.pahse === "celebrating" &&
-    state.currentPlayer === 1 &&
-    player === 1
-  ) {
+  } else if (state.phase === "celebrating" && state.currentPlayer === player) {
     ctx.quadraticCurveTo(-44, 63, -28, 107);
   } else {
     ctx.quadraticCurveTo(-44, 45, -28, 12);
@@ -338,7 +346,7 @@ function drawGorilaRightArm(player) {
       28 - state.bomb.velocity.x / 6.25,
       107 - state.bomb.velocity.y / 6.25
     );
-  } else if (state.pahse === "celebrating" && state.currentPlayer === player) {
+  } else if (state.phase === "celebrating" && state.currentPlayer === player) {
     ctx.quadraticCurveTo(44, 63, 28, 107);
   } else {
     ctx.quadraticCurveTo(44, 45, 28, 12);
@@ -503,7 +511,7 @@ function animate(timestamp) {
 
     //hit detection
     const miss = checkFrameHit() || checkBuildingHit();
-    const hit = false;
+    const hit = checkGorillaHit();
     if (miss) {
       state.currentPlayer = state.currentPlayer == 1 ? 2 : 1;
       state.phase = "aiming";
@@ -513,6 +521,12 @@ function animate(timestamp) {
       return;
     }
     if (hit) {
+      state.phase = "celebrating";
+      bombGrabAreaDOM.classList.add("hide");
+      announceWinner();
+      console.log("winner");
+
+      draw();
       return;
     }
   }
@@ -573,3 +587,31 @@ function checkBuildingHit() {
     }
   }
 }
+
+function checkGorillaHit() {
+  const enemey = state.currentPlayer == 1 ? 2 : 1;
+  const enemeyBuilding = enemey == 1 ? 1 : 8;
+
+  ctx.save();
+  ctx.translate(
+    state.buildings[enemeyBuilding].x +
+      state.buildings[enemeyBuilding].width / 2,
+    state.buildings[enemeyBuilding].height
+  );
+  drawGorilaBody();
+  let hit = ctx.isPointInPath(state.bomb.x, state.bomb.y);
+  drawGorilaLeftArm(enemey);
+  hit ||= ctx.isPointInStroke(state.bomb.x, state.bomb.y);
+  drawGorilaRightArm(enemey);
+  hit ||= ctx.isPointInStroke(state.bomb.x, state.bomb.y);
+
+  ctx.restore();
+  return hit;
+}
+
+function announceWinner() {
+  winnerDOM.innerText = `Player ${state.currentPlayer}`;
+  congratulationsDOM.style.visibility = "visible";
+}
+
+newGameDOM.addEventListener("click", newGame);

@@ -7,6 +7,9 @@ body {
   font-size: 1rem;
   font-family: monospace;
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #info-left {
@@ -28,4 +31,19 @@ body {
   border-radius: 50%;
   background-color: transparent;
   cursor: grab;
+}
+
+.hide {
+  display: none;
+}
+
+#congratulations {
+  position: absolute;
+  visibility: hidden;
+}
+
+#new-game {
+  background-color: transparent;
+  color: white;
+  border: 1px solid white;
 }
