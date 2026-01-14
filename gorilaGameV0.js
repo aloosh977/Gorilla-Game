@@ -20,9 +20,13 @@ const congratulationsDOM = document.getElementById("congratulations");
 const winnerDOM = document.getElementById("winner");
 const newGameDOM = document.getElementById("new-game");
 
+const dpr = window.devicePixelRatio;
+myCanvas.width = window.innerWidth * dpr;
+myCanvas.height = window.innerHeight * dpr;
+myCanvas.style.width = window.innerWidth + "px";
+myCanvas.style.height = window.innerHeight + "px";
+
 const ctx = myCanvas.getContext("2d");
-myCanvas.width = window.innerWidth;
-myCanvas.height = window.innerHeight;
 
 let state = {};
 newGame();
@@ -82,12 +86,12 @@ function generateBuildings(index) {
 
   let height;
   if (index == 1 || index == 8) {
-    const minHeight = 200;
-    const maxHeight = 350;
+    const minHeight = 150;
+    const maxHeight = 300;
     height = minHeight + Math.random() * (maxHeight - minHeight);
   } else {
-    const minHeight = 100; //250;
-    const maxHeight = 200; //500;
+    const minHeight = 200;
+    const maxHeight = 450;
     height = minHeight + Math.random() * (maxHeight - minHeight);
   }
   const lightsOn = [];
@@ -127,6 +131,9 @@ function calculateScale() {
 }
 
 function initializeBombPosition() {
+  if (state.phase != "aiming") {
+    return;
+  }
   const building =
     state.currentPlayer === 1 ? state.buildings[1] : state.buildings[8];
   const gorilaX = building.x + building.width / 2;
@@ -151,8 +158,10 @@ function initializeBombPosition() {
 }
 
 window.addEventListener("resize", () => {
-  myCanvas.width = window.innerWidth;
-  myCanvas.height = window.innerHeight;
+  myCanvas.width = window.innerWidth * dpr;
+  myCanvas.height = window.innerHeight * dpr;
+  myCanvas.style.width = window.innerWidth + "px";
+  myCanvas.style.height = window.innerHeight + "px";
   calculateScale();
   initializeBombPosition();
   draw();
@@ -161,6 +170,8 @@ window.addEventListener("resize", () => {
 //drawing
 function draw() {
   ctx.save();
+
+  ctx.scale(dpr, dpr);
 
   ctx.translate(0, window.innerHeight);
   ctx.scale(1 * state.scale, -1 * state.scale);
